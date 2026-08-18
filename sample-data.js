@@ -1,5 +1,3 @@
-// Sample data for testing the question and test system
-// This file shows how to create questions and question sets
 
 const sampleQuestionSet = {
   title: "JavaScript Fundamentals Test",
@@ -84,63 +82,7 @@ const sampleQuestions = [
   }
 ];
 
-// API Usage Examples:
 
-/*
-1. Create a Question Set (TPO only):
-POST /api/questions/question-sets
-Headers: Authorization: Bearer <token>
-Body: {
-  "title": "JavaScript Fundamentals Test",
-  "description": "A comprehensive test covering JavaScript basics",
-  "maximumMarks": 50,
-  "marksPerQuestion": 5,
-  "totalQuestions": 10,
-  "timeLimit": 60
-}
-
-2. Create Questions (TPO only):
-POST /api/questions/questions
-Headers: Authorization: Bearer <token>
-Body: {
-  "questionText": "What is the output of console.log(typeof null)?",
-  "options": {
-    "A": "null",
-    "B": "object", 
-    "C": "undefined",
-    "D": "number"
-  },
-  "correctAnswer": "B",
-  "marks": 5,
-  "explanation": "In JavaScript, typeof null returns 'object'",
-  "difficulty": "medium",
-  "category": "JavaScript Basics",
-  "questionSetId": "<question-set-id>"
-}
-
-3. Start a Test (Student):
-POST /api/tests/start/<question-set-id>
-Headers: Authorization: Bearer <token>
-
-4. Submit Answer (Student):
-POST /api/tests/<test-session-id>/answer/<question-id>
-Headers: Authorization: Bearer <token>
-Body: {
-  "selectedAnswer": "B"
-}
-
-5. Submit Complete Test (Student):
-POST /api/tests/<test-session-id>/submit
-Headers: Authorization: Bearer <token>
-
-6. Get Test Results (Student):
-GET /api/tests/results/<test-session-id>
-Headers: Authorization: Bearer <token>
-
-7. Get Test Analytics (TPO):
-GET /api/tests/analytics/<question-set-id>
-Headers: Authorization: Bearer <token>
-*/
 
 module.exports = {
   sampleQuestionSet,
