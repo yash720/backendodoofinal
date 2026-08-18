@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Manage Questions' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Question Sets &amp; Questions</h1>
+    <p class="subtitle">Create tests for students and manage their questions.</p>
+
+    <div class="card">
+      <h2 class="mt-0">Create a Question Set</h2>
+      <form id="setForm">
+        <div class="field-row">
+          <div>
+            <label>Title</label>
+            <input type="text" id="setTitle" required>
+          </div>
+          <div>
+            <label>Time Limit (minutes)</label>
+            <input type="number" id="setTimeLimit" value="60">
+          </div>
+        </div>
+        <div>
+          <label>Description</label>
+          <textarea id="setDescription" required></textarea>
+        </div>
+        <div class="field-row">
+          <div>
+            <label>Total Questions</label>
+            <input type="number" id="setTotalQuestions" required>
+          </div>
+          <div>
+            <label>Marks Per Question</label>
+            <input type="number" id="setMarksPerQuestion" required>
+          </div>
+          <div>
+            <label>Maximum Marks</label>
+            <input type="number" id="setMaxMarks" required>
+          </div>
+        </div>
+        <button type="submit" id="setBtn">Create Question Set</button>
+        <div id="setMsg" class="msg"></div>
+      </form>
+    </div>
+
+    <h2>Existing Question Sets</h2>
+    <div id="setsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    let questionSets = [];
+
+    function questionForm(setId) {
+      return `
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          <strong style="font-size:0.9rem">Add a Question</strong>
+          <div style="margin-top:8px">
+            <label>Question Text</label>
+            <input type="text" id="qtext_${setId}">
+          </div>
+          <div class="field-row">
+            <div><label>Option A</label><input type="text" id="qa_${setId}"></div>
+            <div><label>Option B</label><input type="text" id="qb_${setId}"></div>
+          </div>
+          <div class="field-row">
+            <div><label>Option C</label><input type="text" id="qc_${setId}"></div>
+            <div><label>Option D</label><input type="text" id="qd_${setId}"></div>
+          </div>
+          <div class="field-row">
+            <div>
+              <label>Correct Answer</label>
+              <select id="qcorrect_${setId}">
+                <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+              </select>
+            </div>
+            <div><label>Marks</label><input type="number" id="qmarks_${setId}" value="1"></div>
+            <div><label>Category</label><input type="text" id="qcategory_${setId}" placeholder="e.g. Logical Reasoning"></div>
+          </div>
+          <button class="btn-small" onclick="addQuestion('${setId}')">Add Question</button>
+          <div id="qmsg_${setId}" class="msg"></div>
+          <div id="qlist_${setId}" style="margin-top:8px"></div>
+        </div>
+      `;
+    }
+
+    async function addQuestion(setId) {
+      const msgEl = document.getElementById('qmsg_' + setId);
+      try {
+        const payload = {
+          questionText: document.getElementById('qtext_' + setId).value.trim(),
+          options: {
+            A: document.getElementById('qa_' + setId).value.trim(),
+            B: document.getElementById('qb_' + setId).value.trim(),
+            C: document.getElementById('qc_' + setId).value.trim(),
+            D: document.getElementById('qd_' + setId).value.trim()
+          },
+          correctAnswer: document.getElementById('qcorrect_' + setId).value,
+          marks: Number(document.getElementById('qmarks_' + setId).value) || 1,
+          category: document.getElementById('qcategory_' + setId).value.trim(),
+          questionSetId: setId
+        };
+        await apiFetch('/questions/questions', { method: 'POST', body: JSON.stringify(payload) });
+        showMsg(msgEl, 'Question added!', false);
+        ['qtext', 'qa', 'qb', 'qc', 'qd', 'qcategory'].forEach(f => document.getElementById(f + '_' + setId).value = '');
+        loadQuestionsFor(setId);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      }
+    }
+
+    async function loadQuestionsFor(setId) {
+      const el = document.getElementById('qlist_' + setId);
+      try {
+        const data = await apiFetch('/questions/question-sets/' + setId);
+        const qs = data.data.questions || [];
+        el.innerHTML = qs.length
+          ? qs.map((q, i) => `<div class="text-muted" style="font-size:0.85rem;margin-top:4px">${i + 1}. ${escapeHtml(q.questionText)}</div>`).join('')
+          : '<div class="text-muted" style="font-size:0.85rem">No questions yet.</div>';
+      } catch (err) {
+        el.innerHTML = '';
+      }
+    }
+
+    async function deleteSet(setId) {
+      if (!confirm('Delete this question set?')) return;
+      try {
+        await apiFetch('/questions/question-sets/' + setId, { method: 'DELETE' });
+        loadSets();
+      } catch (err) {
+        alert('Failed to delete: ' + err.message);
+      }
+    }
+
+    async function loadSets() {
+      const el = document.getElementById('setsList');
+      el.innerHTML = '<div class="loading">Loading…</div>';
+      try {
+        const data = await apiFetch('/questions/question-sets');
+        questionSets = data.data || [];
+        if (!questionSets.length) {
+          el.innerHTML = '<div class="empty-state">No question sets yet. Create one above.</div>';
+          return;
+        }
+        el.innerHTML = questionSets.map(qs => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(qs.title)}</strong><br>
+                <span class="text-muted">${escapeHtml(qs.description)}</span>
+              </div>
+              <div class="btn-row" style="margin-top:0">
+                <button class="btn-small btn-danger" onclick="deleteSet('${qs._id}')">Delete</button>
+              </div>
+            </div>
+            <div class="flex gap-8" style="margin-top:8px">
+              <span class="badge">${(qs.questions || []).length}/${qs.totalQuestions} questions</span>
+              <span class="badge">${qs.timeLimit} min</span>
+              <span class="badge">${qs.maximumMarks} marks</span>
+            </div>
+            ${questionForm(qs._id)}
+          </div>
+        `).join('');
+        questionSets.forEach(qs => loadQuestionsFor(qs._id));
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load question sets: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    document.getElementById('setForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('setBtn');
+      const msgEl = document.getElementById('setMsg');
+      btn.disabled = true;
+      try {
+        const payload = {
+          title: document.getElementById('setTitle').value.trim(),
+          description: document.getElementById('setDescription').value.trim(),
+          totalQuestions: Number(document.getElementById('setTotalQuestions').value),
+          marksPerQuestion: Number(document.getElementById('setMarksPerQuestion').value),
+          maximumMarks: Number(document.getElementById('setMaxMarks').value),
+          timeLimit: Number(document.getElementById('setTimeLimit').value) || 60
+        };
+        await apiFetch('/questions/question-sets', { method: 'POST', body: JSON.stringify(payload) });
+        showMsg(msgEl, 'Question set created!', false);
+        this.reset();
+        document.getElementById('setTimeLimit').value = 60;
+        loadSets();
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    requireAuth('tpo');
+    loadSets();
+  </script>
+</body>
+</html>

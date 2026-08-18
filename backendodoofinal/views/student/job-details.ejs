@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Job Details' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <a href="/student/jobs" class="text-muted">&larr; Back to jobs</a>
+    <div id="jobDetail" class="loading" style="margin-top:12px">Loading…</div>
+  </div>
+
+  <script>
+    const jobId = <%- JSON.stringify(jobId) %>;
+
+    async function applyToJob() {
+      const msgEl = document.getElementById('applyMsg');
+      const btn = document.getElementById('applyBtn');
+      btn.disabled = true;
+      try {
+        await apiFetch('/student/apply/' + jobId, { method: 'POST' });
+        showMsg(msgEl, 'Application submitted successfully!', false);
+        btn.textContent = 'Applied ✓';
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+        btn.disabled = false;
+      }
+    }
+
+    (async function () {
+      requireAuth('student');
+      const el = document.getElementById('jobDetail');
+      try {
+        const data = await apiFetch('/student/job/' + jobId);
+        const job = data.job;
+        const skills = (job.eligibilityCriteria || []).map(s => `<span class="badge">${escapeHtml(s)}</span>`).join(' ');
+
+        el.innerHTML = `
+          <h1>${escapeHtml(job.title)}</h1>
+          <p class="subtitle">${escapeHtml(job.company.name)} · ${escapeHtml(job.location)}</p>
+
+          <div class="card">
+            <div class="card-row">
+              <div class="stat-box" style="border:none;padding:0;text-align:left">
+                <div class="num">${fmtMoney(job.package)} <span style="font-size:0.9rem;font-weight:400">/year</span></div>
+                <div class="label">Package</div>
+              </div>
+              <div>
+                <span class="badge badge-primary">${escapeHtml(job.status)}</span>
+                ${job.hasApplied ? '<span class="badge badge-success">You applied</span>' : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="mt-0">Job Description</h2>
+            <p>${escapeHtml(job.description)}</p>
+          </div>
+
+          <div class="card">
+            <h2 class="mt-0">Eligibility Criteria</h2>
+            <div class="flex gap-8" style="flex-wrap:wrap">${skills || '<span class="text-muted">Not specified</span>'}</div>
+          </div>
+
+          <div class="card">
+            <h2 class="mt-0">Timeline</h2>
+            <table>
+              <tr><td>Online Test</td><td>${job.timeline.onlineTest === 'To be announced' ? job.timeline.onlineTest : fmtDate(job.timeline.onlineTest)}</td></tr>
+              <tr><td>Interview</td><td>${job.timeline.interview === 'To be announced' ? job.timeline.interview : fmtDate(job.timeline.interview)}</td></tr>
+              <tr><td>Final Offer</td><td>${job.timeline.finalOffer === 'To be announced' ? job.timeline.finalOffer : fmtDate(job.timeline.finalOffer)}</td></tr>
+              <tr><td>Application Deadline</td><td>${fmtDate(job.deadline)}</td></tr>
+            </table>
+          </div>
+
+          <div class="card">
+            <h2 class="mt-0">Company</h2>
+            <p><strong>${escapeHtml(job.company.name)}</strong><br>
+            <span class="text-muted">${escapeHtml(job.company.email || '')} ${job.company.phone ? '· ' + escapeHtml(job.company.phone) : ''}</span></p>
+          </div>
+
+          <div class="btn-row">
+            ${job.hasApplied
+              ? '<button disabled>Already Applied</button>'
+              : '<button id="applyBtn" onclick="applyToJob()">Apply Now</button>'}
+          </div>
+          <div id="applyMsg" class="msg"></div>
+        `;
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load job: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

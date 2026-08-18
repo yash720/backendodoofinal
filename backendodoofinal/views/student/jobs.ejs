@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Browse Jobs' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Available Jobs</h1>
+    <p class="subtitle" id="jobsSubtitle">Loading open, approved job postings…</p>
+    <div id="jobsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('student');
+      const listEl = document.getElementById('jobsList');
+      try {
+        const data = await apiFetch('/student/home');
+        const jobs = data.jobs || [];
+        document.getElementById('jobsSubtitle').textContent = `${data.openJobs ?? jobs.length} open position(s)`;
+
+        if (!jobs.length) {
+          listEl.innerHTML = '<div class="empty-state">No open jobs right now. Check back soon.</div>';
+          return;
+        }
+
+        listEl.innerHTML = jobs.map(job => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(job.jobTitle)}</strong><br>
+                <span class="text-muted">${escapeHtml(job.companyName)} · ${escapeHtml(job.city)}</span>
+              </div>
+              <div>
+                ${job.isApplied ? '<span class="badge badge-success">Applied</span>' : ''}
+              </div>
+            </div>
+            <div style="margin-top:10px" class="flex gap-8" style="flex-wrap:wrap">
+              <span class="badge">💰 ${escapeHtml(job.compensation)}</span>
+              <span class="badge">🎓 ${escapeHtml(job.branch)}</span>
+              <span class="badge">⏰ ${job.daysUntilDeadline != null ? job.daysUntilDeadline + ' days left' : 'Deadline: ' + fmtDate(job.deadline)}</span>
+            </div>
+            <p class="text-muted" style="margin:10px 0 0;font-size:0.88rem">Eligibility: ${escapeHtml(job.eligibility)}</p>
+            <div class="btn-row">
+              <a class="btn btn-small" href="/student/job/${job.id}">View Details</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        listEl.innerHTML = `<div class="msg error" style="display:block">Failed to load jobs: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

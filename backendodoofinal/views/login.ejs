@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Login' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="container-narrow">
+    <div class="card">
+      <h1>Login</h1>
+      <p class="subtitle">Sign in to your account.</p>
+
+      <form id="loginForm">
+        <div>
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" id="loginBtn">Login</button>
+        <div id="loginMsg" class="msg"></div>
+      </form>
+
+      <p class="text-muted" style="margin-top:16px">Don't have an account? <a href="/register">Register here</a></p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const user = getUser();
+      if (user && getToken()) window.location.href = '/' + user.role + '/dashboard';
+    })();
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const msgEl = document.getElementById('loginMsg');
+      btn.disabled = true;
+      try {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const data = await apiFetch('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+        setSession(data.token, data.user);
+        showMsg(msgEl, 'Login successful! Redirecting…', false);
+        window.location.href = '/' + data.user.role + '/dashboard';
+      } catch (err) {
+        showMsg(msgEl, err.data && (err.data.message || err.data.error) || err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

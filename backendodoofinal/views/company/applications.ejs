@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Applications' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <a href="/company/jobs" class="text-muted">&larr; Back to my jobs</a>
+    <h1 style="margin-top:10px">Applications</h1>
+    <p class="subtitle" id="appsSubtitle">Loading…</p>
+    <div id="appsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    const jobId = <%- JSON.stringify(jobId) %>;
+
+    function offerForm(app) {
+      return `
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+          <div class="field-row">
+            <div>
+              <label>Package Offered</label>
+              <input type="number" id="pkg_${app._id}" placeholder="e.g. 900000">
+            </div>
+            <div>
+              <label>Offer Letter URL</label>
+              <input type="url" id="url_${app._id}" placeholder="https://…">
+            </div>
+          </div>
+          <button class="btn-small" onclick="createOffer('${app._id}', '${app.student ? app.student._id : ''}')">Send Offer</button>
+          <div id="offerMsg_${app._id}" class="msg"></div>
+        </div>
+      `;
+    }
+
+    async function createOffer(appId, studentId) {
+      const msgEl = document.getElementById('offerMsg_' + appId);
+      try {
+        const pkg = document.getElementById('pkg_' + appId).value;
+        const url = document.getElementById('url_' + appId).value;
+        if (!pkg) { showMsg(msgEl, 'Enter a package amount', true); return; }
+        await apiFetch('/company/create-offer', {
+          method: 'POST',
+          body: JSON.stringify({ studentId, jobId, package: Number(pkg), offerLetterURL: url })
+        });
+        showMsg(msgEl, 'Offer sent!', false);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      }
+    }
+
+    (async function () {
+      requireAuth('company');
+      const el = document.getElementById('appsList');
+      try {
+        const data = await apiFetch('/company/applications/' + jobId);
+        const apps = (data.applications || []).filter(a => a.job && a.job.toString ? true : true);
+        document.getElementById('appsSubtitle').textContent = `${apps.length} application(s) for this job`;
+
+        if (!apps.length) {
+          el.innerHTML = '<div class="empty-state">No applications yet for this job.</div>';
+          return;
+        }
+
+        el.innerHTML = apps.map(app => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(app.student ? app.student.name : 'Unknown Student')}</strong><br>
+                <span class="text-muted">${escapeHtml((app.student && app.student.email) || '')} ${app.student && app.student.rollNumber ? '· ' + escapeHtml(app.student.rollNumber) : ''}</span>
+              </div>
+              <span class="${badgeClassForStatus(app.status)}">${escapeHtml(app.status)}</span>
+            </div>
+            <div class="text-muted" style="margin-top:6px;font-size:0.85rem">Applied ${fmtDate(app.appliedAt)} ${app.student && app.student.branch ? '· ' + escapeHtml(app.student.branch) : ''}</div>
+            ${offerForm(app)}
+          </div>
+        `).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load applications: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

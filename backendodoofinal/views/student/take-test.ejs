@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Take Test' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <div id="testArea" class="loading">Starting test…</div>
+  </div>
+
+  <script>
+    const questionSetId = <%- JSON.stringify(questionSetId) %>;
+    let testSessionId = null;
+    let questions = [];
+    const selectedAnswers = {};
+
+    function renderQuiz(setInfo) {
+      const el = document.getElementById('testArea');
+      el.innerHTML = `
+        <h1>${escapeHtml(setInfo.title)}</h1>
+        <p class="subtitle">${escapeHtml(setInfo.description || '')} ${setInfo.timeLimit ? '· Time limit: ' + setInfo.timeLimit + ' min' : ''}</p>
+        <div id="questionsWrap"></div>
+        <div class="btn-row">
+          <button id="submitTestBtn">Submit Test</button>
+        </div>
+        <div id="testMsg" class="msg"></div>
+      `;
+
+      const wrap = document.getElementById('questionsWrap');
+      wrap.innerHTML = questions.map((q, i) => `
+        <div class="card" data-qid="${q._id}">
+          <strong>Q${i + 1}. ${escapeHtml(q.questionText)}</strong> <span class="text-muted" style="font-size:0.8rem">(${q.marks} mark${q.marks === 1 ? '' : 's'})</span>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+            ${['A', 'B', 'C', 'D'].map(opt => `
+              <label style="font-weight:400;display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="radio" name="q_${q._id}" value="${opt}" style="width:auto">
+                ${opt}. ${escapeHtml(q.options[opt])}
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      wrap.querySelectorAll('input[type=radio]').forEach(input => {
+        input.addEventListener('change', async function () {
+          const qid = this.closest('[data-qid]').getAttribute('data-qid');
+          selectedAnswers[qid] = this.value;
+          try {
+            await apiFetch(`/tests/${testSessionId}/answer/${qid}`, {
+              method: 'POST',
+              body: JSON.stringify({ selectedAnswer: this.value })
+            });
+          } catch (err) {
+            showMsg(document.getElementById('testMsg'), 'Failed to save answer: ' + err.message, true);
+          }
+        });
+      });
+
+      document.getElementById('submitTestBtn').addEventListener('click', async function () {
+        const unanswered = questions.length - Object.keys(selectedAnswers).length;
+        if (unanswered > 0 && !confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) return;
+        this.disabled = true;
+        try {
+          await apiFetch(`/tests/${testSessionId}/submit`, { method: 'POST' });
+          window.location.href = '/student/test-results/' + testSessionId;
+        } catch (err) {
+          showMsg(document.getElementById('testMsg'), 'Failed to submit: ' + err.message, true);
+          this.disabled = false;
+        }
+      });
+    }
+
+    (async function () {
+      requireAuth('student');
+      const el = document.getElementById('testArea');
+      try {
+        const data = await apiFetch('/tests/start/' + questionSetId, { method: 'POST' });
+        testSessionId = data.data.testSession;
+        questions = data.data.questions;
+        renderQuiz(data.data.questionSet);
+      } catch (err) {
+        if (err.status === 400 && err.data && err.data.data && err.data.data._id) {
+
+          testSessionId = err.data.data._id;
+          el.innerHTML = `
+            <div class="card">
+              <p>You already have this test in progress.</p>
+              <div class="btn-row">
+                <a class="btn" href="/student/test-results/${testSessionId}">View / Submit</a>
+                <a class="btn btn-secondary" href="/student/tests">Back to tests</a>
+              </div>
+            </div>`;
+        } else {
+          el.innerHTML = `<div class="msg error" style="display:block">Failed to start test: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

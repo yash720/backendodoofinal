@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'TPO Dashboard' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1 id="welcomeMsg">TPO Dashboard</h1>
+    <p class="subtitle" id="welcomeSub">Loading job approval overview…</p>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="card-row">
+      <h2 class="mt-0">Pending Job Approvals</h2>
+      <a href="/tpo/job-approval" class="btn btn-small">Review all</a>
+    </div>
+    <div id="pendingList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      const user = requireAuth('tpo');
+      document.getElementById('welcomeSub').textContent = `Welcome back, ${user.name}!`;
+      const grid = document.getElementById('statGrid');
+      const listEl = document.getElementById('pendingList');
+      try {
+        const statsData = await apiFetch('/tpo/job-approval/stats');
+        const t = statsData.data.total;
+        grid.innerHTML = [
+          ['Total Jobs', t.total],
+          ['Pending', t.pending],
+          ['Approved', t.approved],
+          ['Rejected', t.rejected]
+        ].map(([label, num]) => `
+          <div class="stat-box"><div class="num">${num ?? 0}</div><div class="label">${label}</div></div>
+        `).join('');
+
+        const pendingData = await apiFetch('/tpo/job-approval/pending');
+        const jobs = (pendingData.data.jobs || []).slice(0, 5);
+        if (!jobs.length) {
+          listEl.innerHTML = '<div class="empty-state">No pending job requests right now.</div>';
+        } else {
+          listEl.innerHTML = jobs.map(job => `
+            <div class="card">
+              <div class="card-row">
+                <div>
+                  <strong>${escapeHtml(job.title)}</strong><br>
+                  <span class="text-muted">${escapeHtml(job.company.name)} · ${escapeHtml(job.location)}</span>
+                </div>
+                <span class="badge badge-warning">${job.daysSinceCreated}d ago</span>
+              </div>
+              <div class="btn-row">
+                <a class="btn btn-small" href="/tpo/job-approval">Review</a>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        listEl.innerHTML = `<div class="msg error" style="display:block">Failed to load dashboard: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Post a Job' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Post a Job</h1>
+    <p class="subtitle">New job postings need TPO approval before students can see them.</p>
+
+    <div class="card">
+      <form id="jobForm">
+        <div class="field-row">
+          <div>
+            <label for="title">Job Title</label>
+            <input type="text" id="title" name="title" required>
+          </div>
+          <div>
+            <label for="location">Location</label>
+            <input type="text" id="location" name="location" required>
+          </div>
+        </div>
+
+        <div>
+          <label for="description">Description</label>
+          <textarea id="description" name="description" required></textarea>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label for="package">Package (per year)</label>
+            <input type="number" id="package" name="package" required>
+          </div>
+          <div>
+            <label for="deadline">Application Deadline</label>
+            <input type="date" id="deadline" name="deadline" required>
+          </div>
+        </div>
+
+        <div>
+          <label for="eligibilityCriteria">Eligibility Criteria (comma separated)</label>
+          <input type="text" id="eligibilityCriteria" name="eligibilityCriteria" placeholder="B.Tech, CGPA > 7.5" required>
+        </div>
+
+        <h2>Timeline (optional)</h2>
+        <div class="field-row">
+          <div>
+            <label for="onlineTest">Online Test Date</label>
+            <input type="date" id="onlineTest" name="onlineTest">
+          </div>
+          <div>
+            <label for="interview">Interview Date</label>
+            <input type="date" id="interview" name="interview">
+          </div>
+          <div>
+            <label for="finalOffer">Final Offer Date</label>
+            <input type="date" id="finalOffer" name="finalOffer">
+          </div>
+        </div>
+
+        <h2>Compensation (optional)</h2>
+        <div class="field-row">
+          <div>
+            <label for="fixed">Fixed</label>
+            <input type="number" id="fixed" name="fixed">
+          </div>
+          <div>
+            <label for="variable">Variable</label>
+            <input type="number" id="variable" name="variable">
+          </div>
+        </div>
+
+        <button type="submit" id="postBtn">Submit for Approval</button>
+        <div id="jobMsg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    requireAuth('company');
+
+    document.getElementById('jobForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('postBtn');
+      const msgEl = document.getElementById('jobMsg');
+      btn.disabled = true;
+      try {
+        const eligibilityCriteria = document.getElementById('eligibilityCriteria').value
+          .split(',').map(s => s.trim()).filter(Boolean);
+
+        const payload = {
+          title: document.getElementById('title').value.trim(),
+          location: document.getElementById('location').value.trim(),
+          description: document.getElementById('description').value.trim(),
+          package: Number(document.getElementById('package').value),
+          deadline: document.getElementById('deadline').value,
+          eligibilityCriteria,
+          timeline: {
+            onlineTest: document.getElementById('onlineTest').value || undefined,
+            interview: document.getElementById('interview').value || undefined,
+            finalOffer: document.getElementById('finalOffer').value || undefined
+          },
+          compensation: {
+            fixed: document.getElementById('fixed').value ? Number(document.getElementById('fixed').value) : undefined,
+            variable: document.getElementById('variable').value ? Number(document.getElementById('variable').value) : undefined
+          }
+        };
+
+        await apiFetch('/company/create-job', { method: 'POST', body: JSON.stringify(payload) });
+        showMsg(msgEl, 'Job submitted! It will appear to students once a TPO approves it.', false);
+        this.reset();
+        setTimeout(() => (window.location.href = '/company/jobs'), 1200);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

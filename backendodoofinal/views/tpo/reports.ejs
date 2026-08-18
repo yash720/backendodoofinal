@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Reports' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Placement Reports</h1>
+    <p class="subtitle">Campus-wide placement statistics.</p>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <h2>Company-wise Breakdown</h2>
+    <div id="companyTable" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('tpo');
+      const grid = document.getElementById('statGrid');
+      const tableEl = document.getElementById('companyTable');
+      try {
+        const data = await apiFetch('/tpo/reports');
+        const r = data.report;
+
+        grid.innerHTML = [
+          ['Students', r.totalStudents],
+          ['Companies', r.totalCompanies],
+          ['Jobs Posted', r.totalJobs],
+          ['Applications', r.totalApplications],
+          ['Placed', r.placedApplications],
+          ['Placement Rate', r.placementRate]
+        ].map(([label, num]) => `
+          <div class="stat-box"><div class="num">${num ?? 0}</div><div class="label">${label}</div></div>
+        `).join('');
+
+        const stats = r.companyStats || [];
+        tableEl.innerHTML = stats.length
+          ? `<table>
+              <tr><th>Company</th><th>Jobs Posted</th></tr>
+              ${stats.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${c.totalJobs ?? 0}</td></tr>`).join('')}
+            </table>`
+          : '<div class="empty-state">No company data yet.</div>';
+      } catch (err) {
+        tableEl.innerHTML = `<div class="msg error" style="display:block">Failed to load reports: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

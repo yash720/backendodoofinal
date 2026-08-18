@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Test Results' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <div id="resultsArea" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    const testSessionId = <%- JSON.stringify(testSessionId) %>;
+
+    function renderSingleResult(d) {
+      const el = document.getElementById('resultsArea');
+      const ps = d.performanceSummary;
+      el.innerHTML = `
+        <a href="/student/test-results" class="text-muted">&larr; All results</a>
+        <h1 style="margin-top:10px">Test Result</h1>
+        <p class="subtitle">${d.testDetails.duration ? 'Duration: ' + Math.round(d.testDetails.duration) + ' min' : ''}</p>
+
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num">${ps.totalScore.value}${ps.totalScore.unit}</div><div class="label">${ps.totalScore.label}</div></div>
+          <div class="stat-box"><div class="num">${ps.correctAnswers.value}</div><div class="label">${ps.correctAnswers.label}</div></div>
+          <div class="stat-box"><div class="num">${ps.wrongAnswers.value}</div><div class="label">${ps.wrongAnswers.label}</div></div>
+        </div>
+
+        ${d.subjectWisePerformance.data.length ? `
+          <h2>Subject-wise Performance</h2>
+          <table>
+            <tr><th>Section</th><th>Correct</th><th>Incorrect</th><th>Score</th><th>%</th></tr>
+            ${d.subjectWisePerformance.data.map(s => `
+              <tr><td>${escapeHtml(s.section)}</td><td>${s.correct}</td><td>${s.incorrect}</td><td>${s.score}/${s.totalMarks}</td><td>${s.scorePercentage}%</td></tr>
+            `).join('')}
+          </table>
+        ` : ''}
+
+        <h2>Question Review</h2>
+        ${d.questionAnalysis.map((q, i) => `
+          <div class="card">
+            <div class="card-row">
+              <strong>Q${i + 1}. ${escapeHtml(q.questionText)}</strong>
+              <span class="${q.isCorrect ? 'badge badge-success' : 'badge badge-error'}">${q.isCorrect ? 'Correct' : 'Incorrect'}</span>
+            </div>
+            <p class="text-muted" style="margin:8px 0 0;font-size:0.88rem">
+              Your answer: <strong>${escapeHtml(q.selectedAnswer || '—')}</strong> · Correct answer: <strong>${escapeHtml(q.correctAnswer)}</strong> · ${q.marksObtained}/${q.totalMarks} marks
+            </p>
+            ${q.explanation ? `<p class="text-muted" style="margin-top:6px;font-size:0.85rem">💡 ${escapeHtml(q.explanation)}</p>` : ''}
+          </div>
+        `).join('')}
+      `;
+    }
+
+    function renderResultsList(results) {
+      const el = document.getElementById('resultsArea');
+      if (!results.length) {
+        el.innerHTML = '<h1>My Test Results</h1><div class="empty-state">You haven\\'t completed any tests yet.</div>';
+        return;
+      }
+      el.innerHTML = `
+        <h1>My Test Results</h1>
+        ${results.map(r => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml((r.questionSet && r.questionSet.title) || 'Test')}</strong><br>
+                <span class="text-muted">${fmtDate(r.createdAt)}</span>
+              </div>
+              <span class="badge badge-primary">${r.percentage != null ? r.percentage.toFixed ? r.percentage.toFixed(1) : r.percentage : '-'}%</span>
+            </div>
+            <div class="btn-row">
+              <a class="btn btn-small" href="/student/test-results/${r._id}">View Details</a>
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    (async function () {
+      requireAuth('student');
+      const el = document.getElementById('resultsArea');
+      try {
+        if (testSessionId) {
+          const data = await apiFetch('/tests/results/' + testSessionId);
+          renderSingleResult(data.data);
+        } else {
+          const data = await apiFetch('/tests/results');
+          renderResultsList(data.data || []);
+        }
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load results: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

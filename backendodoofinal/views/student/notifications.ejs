@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Notifications' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <div class="card-row">
+      <div>
+        <h1>Notifications</h1>
+        <p class="subtitle" id="notifSubtitle">Loading…</p>
+      </div>
+      <button id="markAllBtn" class="btn-secondary btn-small">Mark all read</button>
+    </div>
+    <div id="notifList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    async function markRead(id) {
+      try {
+        await apiFetch('/timeline/notifications/' + id + '/read', { method: 'PUT' });
+        loadNotifications();
+      } catch (err) {  }
+    }
+
+    async function deleteNotif(id) {
+      try {
+        await apiFetch('/timeline/notifications/' + id, { method: 'DELETE' });
+        loadNotifications();
+      } catch (err) {  }
+    }
+
+    async function loadNotifications() {
+      const el = document.getElementById('notifList');
+      try {
+        const data = await apiFetch('/timeline/daily-updates');
+        const d = data.data;
+        document.getElementById('notifSubtitle').textContent = `${d.unreadCount} unread notification(s)`;
+        const notifs = d.notifications || [];
+        if (!notifs.length) {
+          el.innerHTML = '<div class="empty-state">No notifications yet.</div>';
+          return;
+        }
+        el.innerHTML = notifs.map(n => `
+          <div class="card" style="${n.isRead ? '' : 'border-left:3px solid var(--primary)'}">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(n.title)}</strong>
+                ${!n.isRead ? '<span class="badge badge-primary" style="margin-left:6px">New</span>' : ''}
+                <p class="text-muted" style="margin:6px 0 0">${escapeHtml(n.message)}</p>
+                <div class="text-muted" style="margin-top:6px;font-size:0.8rem">${fmtDateTime(n.createdAt)}</div>
+              </div>
+              <div class="btn-row" style="margin-top:0">
+                ${!n.isRead ? `<button class="btn-secondary btn-small" onclick="markRead('${n._id}')">Mark read</button>` : ''}
+                <button class="btn-secondary btn-small" onclick="deleteNotif('${n._id}')">Delete</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load notifications: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    document.getElementById('markAllBtn').addEventListener('click', async () => {
+      try {
+        await apiFetch('/timeline/notifications/read-all', { method: 'PUT' });
+        loadNotifications();
+      } catch (err) {  }
+    });
+
+    (function () {
+      requireAuth('student');
+      loadNotifications();
+    })();
+  </script>
+</body>
+</html>

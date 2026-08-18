@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Job Approval' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Job Approval</h1>
+    <p class="subtitle">Review job postings submitted by companies.</p>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="pending">Pending</div>
+      <div class="tab" data-tab="approved">Approved</div>
+      <div class="tab" data-tab="rejected">Rejected</div>
+    </div>
+    <div id="jobsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    let currentTab = 'pending';
+
+    function rejectForm(jobId) {
+      return `
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+          <input type="text" id="reason_${jobId}" placeholder="Reason for rejection">
+          <div class="btn-row">
+            <button class="btn-small" onclick="approveJob('${jobId}')">Approve</button>
+            <button class="btn-small btn-danger" onclick="rejectJob('${jobId}')">Reject</button>
+          </div>
+          <div id="actionMsg_${jobId}" class="msg"></div>
+        </div>
+      `;
+    }
+
+    async function approveJob(jobId) {
+      const msgEl = document.getElementById('actionMsg_' + jobId);
+      try {
+        await apiFetch('/tpo/job-approval/approve/' + jobId, { method: 'POST' });
+        showMsg(msgEl, 'Approved!', false);
+        setTimeout(loadJobs, 600);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      }
+    }
+
+    async function rejectJob(jobId) {
+      const msgEl = document.getElementById('actionMsg_' + jobId);
+      const reason = document.getElementById('reason_' + jobId).value.trim();
+      if (!reason) { showMsg(msgEl, 'Please provide a rejection reason', true); return; }
+      try {
+        await apiFetch('/tpo/job-approval/reject/' + jobId, {
+          method: 'POST',
+          body: JSON.stringify({ rejectionReason: reason })
+        });
+        showMsg(msgEl, 'Rejected.', false);
+        setTimeout(loadJobs, 600);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      }
+    }
+
+    function renderJobCard(job) {
+      const extra = currentTab === 'pending'
+        ? rejectForm(job.id)
+        : currentTab === 'rejected'
+          ? `<p style="margin:8px 0 0;font-size:0.85rem;color:var(--error)">Reason: ${escapeHtml(job.rejectionReason || '')}</p>`
+          : `<p class="text-muted" style="margin:8px 0 0;font-size:0.85rem">Approved by ${escapeHtml(job.approvedBy ? job.approvedBy.name : '')} on ${fmtDate(job.approvedAt)}</p>`;
+
+      return `
+        <div class="card">
+          <div class="card-row">
+            <div>
+              <strong>${escapeHtml(job.title)}</strong><br>
+              <span class="text-muted">${escapeHtml(job.company.name)} · ${escapeHtml(job.location)} · ${fmtMoney(job.package)}</span>
+            </div>
+            <span class="badge">${fmtDate(job.deadline)}</span>
+          </div>
+          <p class="text-muted" style="margin:8px 0 0;font-size:0.88rem">${escapeHtml((job.description || '').slice(0, 200))}${(job.description || '').length > 200 ? '…' : ''}</p>
+          <div class="flex gap-8" style="margin-top:8px;flex-wrap:wrap">
+            ${(job.eligibilityCriteria || []).map(c => `<span class="badge">${escapeHtml(c)}</span>`).join('')}
+          </div>
+          ${extra}
+        </div>
+      `;
+    }
+
+    async function loadJobs() {
+      const el = document.getElementById('jobsList');
+      el.innerHTML = '<div class="loading">Loading…</div>';
+      try {
+        const data = await apiFetch('/tpo/job-approval/' + currentTab);
+        const jobs = data.data.jobs || [];
+        if (!jobs.length) {
+          el.innerHTML = `<div class="empty-state">No ${currentTab} jobs.</div>`;
+          return;
+        }
+        el.innerHTML = jobs.map(renderJobCard).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load jobs: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentTab = tab.getAttribute('data-tab');
+        loadJobs();
+      });
+    });
+
+    requireAuth('tpo');
+    loadJobs();
+  </script>
+</body>
+</html>

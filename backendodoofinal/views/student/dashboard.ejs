@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Student Dashboard' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1 id="welcomeMsg">Dashboard</h1>
+    <p class="subtitle" id="welcomeSub">Loading your placement overview…</p>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="card-row">
+      <h2 class="mt-0">Recent Applications</h2>
+      <a href="/student/applications" class="btn-secondary btn btn-small">View all</a>
+    </div>
+    <div id="recentApplications" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('student');
+      const grid = document.getElementById('statGrid');
+      const listEl = document.getElementById('recentApplications');
+      try {
+        const data = await apiFetch('/student/dashboard');
+        document.getElementById('welcomeMsg').textContent = (data.welcomeMessage && data.welcomeMessage.message) || 'Welcome!';
+        document.getElementById('welcomeSub').textContent = (data.welcomeMessage && data.welcomeMessage.subtitle) || '';
+
+        const s = data.stats || {};
+        grid.innerHTML = [
+          ['Total Applications', s.totalApplications],
+          ['Applied', s.pendingApplications],
+          ['Shortlisted', s.shortlistedApplications],
+          ['Interview', s.interviewApplications],
+          ['Offers', s.offerApplications],
+          ['Placed', s.placedApplications]
+        ].map(([label, num]) => `
+          <div class="stat-box">
+            <div class="num">${num ?? 0}</div>
+            <div class="label">${label}</div>
+          </div>
+        `).join('');
+
+        const recents = data.recentApplications || [];
+        if (!recents.length) {
+          listEl.innerHTML = '<div class="empty-state">No applications yet. <a href="/student/jobs">Browse jobs</a> to get started.</div>';
+        } else {
+          listEl.innerHTML = recents.map(app => `
+            <div class="card">
+              <div class="card-row">
+                <div>
+                  <strong>${escapeHtml(app.jobTitle)}</strong><br>
+                  <span class="text-muted">${escapeHtml(app.companyName)} · ${escapeHtml(app.applicationNumber)}</span>
+                </div>
+                <span class="${badgeClassForStatus(app.status)}">${escapeHtml(app.status)}</span>
+              </div>
+              <div class="text-muted" style="margin-top:8px;font-size:0.85rem">Applied ${fmtDate(app.appliedAt)}</div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        grid.innerHTML = '';
+        listEl.innerHTML = `<div class="msg error" style="display:block">Failed to load dashboard: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

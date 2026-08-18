@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'My Applications' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>My Applications</h1>
+    <p class="subtitle" id="appsSubtitle">Loading…</p>
+
+    <div class="tabs" id="statusTabs"></div>
+    <div id="appsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    let allApplications = [];
+    let currentFilter = 'All';
+
+    function renderTabs(summary) {
+      const tabs = ['All', 'Applied', 'Shortlisted', 'Interview', 'Offer', 'Placed', 'Rejected'];
+      const tabsEl = document.getElementById('statusTabs');
+      tabsEl.innerHTML = tabs.map(t => {
+        const count = t === 'All' ? summary.total : (summary[t.toLowerCase()] ?? 0);
+        return `<div class="tab ${t === currentFilter ? 'active' : ''}" data-tab="${t}">${t} (${count})</div>`;
+      }).join('');
+      tabsEl.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          currentFilter = tab.getAttribute('data-tab');
+          renderTabs(summary);
+          renderList();
+        });
+      });
+    }
+
+    function renderList() {
+      const listEl = document.getElementById('appsList');
+      const filtered = currentFilter === 'All' ? allApplications : allApplications.filter(a => a.status === currentFilter);
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="empty-state">No applications in this category.</div>';
+        return;
+      }
+      listEl.innerHTML = filtered.map(app => `
+        <div class="card">
+          <div class="card-row">
+            <div>
+              <strong>${escapeHtml(app.job.title)}</strong><br>
+              <span class="text-muted">${escapeHtml(app.company.name)} · ${escapeHtml(app.job.location)} · ${escapeHtml(app.applicationNumber)}</span>
+            </div>
+            <span class="${badgeClassForStatus(app.status)}">${escapeHtml(app.status)}</span>
+          </div>
+          <p class="text-muted" style="margin:10px 0 0;font-size:0.85rem">
+            ${escapeHtml((app.statusDetails && app.statusDetails.message) || '')}
+          </p>
+          <div class="text-muted" style="margin-top:8px;font-size:0.82rem">
+            Applied ${fmtDate(app.appliedAt)} · Package ${fmtMoney(app.job.package)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    (async function () {
+      requireAuth('student');
+      const subtitleEl = document.getElementById('appsSubtitle');
+      try {
+        const data = await apiFetch('/student/my-applications');
+        allApplications = data.applications || [];
+        subtitleEl.textContent = `${data.totalApplications ?? allApplications.length} total application(s)`;
+        renderTabs(data.summary || { total: allApplications.length });
+        renderList();
+      } catch (err) {
+        document.getElementById('appsList').innerHTML = `<div class="msg error" style="display:block">Failed to load applications: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

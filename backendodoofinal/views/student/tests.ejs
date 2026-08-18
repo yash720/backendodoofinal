@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Tests' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <div class="card-row">
+      <div>
+        <h1>Tests</h1>
+        <p class="subtitle">Available question sets you can attempt.</p>
+      </div>
+      <a href="/student/test-results" class="btn btn-secondary btn-small">My Results</a>
+    </div>
+    <div id="setsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('student');
+      const el = document.getElementById('setsList');
+      try {
+        const data = await apiFetch('/questions/question-sets');
+        const sets = data.data || [];
+        if (!sets.length) {
+          el.innerHTML = '<div class="empty-state">No tests available right now.</div>';
+          return;
+        }
+        el.innerHTML = sets.map(qs => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(qs.title)}</strong><br>
+                <span class="text-muted">${escapeHtml(qs.description || '')}</span>
+              </div>
+              <span class="badge">${(qs.questions || []).length} questions</span>
+            </div>
+            <div class="flex gap-8" style="margin-top:10px;flex-wrap:wrap">
+              <span class="badge">⏱ ${qs.timeLimit ? qs.timeLimit + ' min' : 'No limit'}</span>
+              <span class="badge">🏆 ${qs.maximumMarks ?? '-'} marks</span>
+            </div>
+            <div class="btn-row">
+              <a class="btn btn-small" href="/student/take-test/${qs._id}">Start Test</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load tests: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

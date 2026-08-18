@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'My Jobs' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <div class="card-row">
+      <h1>My Job Postings</h1>
+      <a href="/company/create-job" class="btn btn-small">+ Post a Job</a>
+    </div>
+    <div id="jobsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('company');
+      const el = document.getElementById('jobsList');
+      try {
+        const data = await apiFetch('/company/jobs');
+        const jobs = data.jobs || [];
+        if (!jobs.length) {
+          el.innerHTML = '<div class="empty-state">No jobs posted yet. <a href="/company/create-job">Post your first job</a>.</div>';
+          return;
+        }
+        el.innerHTML = jobs.map(job => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(job.title)}</strong><br>
+                <span class="text-muted">${escapeHtml(job.location)} · ${fmtMoney(job.package)} · ${job.applicationCount} application(s)</span>
+              </div>
+              <div>
+                <span class="${badgeClassForStatus(job.approvalStatus)}">${escapeHtml(job.approvalStatus)}</span>
+                <span class="${badgeClassForStatus(job.status)}">${escapeHtml(job.status)}</span>
+              </div>
+            </div>
+            <p class="text-muted" style="margin:8px 0 0;font-size:0.85rem">${escapeHtml((job.statusInfo && job.statusInfo.description) || '')}</p>
+            ${job.rejectionReason ? `<p style="margin:6px 0 0;font-size:0.85rem;color:var(--error)">Rejected: ${escapeHtml(job.rejectionReason)}</p>` : ''}
+            <div class="btn-row">
+              <a class="btn btn-small" href="/company/applications/${job.id}">View Applications</a>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load jobs: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Company Dashboard' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Company Dashboard</h1>
+    <p class="subtitle" id="welcomeSub">Loading your job postings…</p>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="card-row">
+      <h2 class="mt-0">Recent Job Postings</h2>
+      <div class="btn-row" style="margin-top:0">
+        <a href="/company/create-job" class="btn btn-small">+ Post a Job</a>
+        <a href="/company/jobs" class="btn btn-secondary btn-small">View all</a>
+      </div>
+    </div>
+    <div id="jobsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      const user = requireAuth('company');
+      document.getElementById('welcomeSub').textContent = `Welcome back, ${user.name}!`;
+      const grid = document.getElementById('statGrid');
+      const listEl = document.getElementById('jobsList');
+      try {
+        const data = await apiFetch('/company/jobs');
+        const jobs = data.jobs || [];
+
+        grid.innerHTML = [
+          ['Total Jobs', data.totalJobs],
+          ['Open', data.openJobs],
+          ['Closed', data.closedJobs],
+          ['Expired', data.expiredJobs]
+        ].map(([label, num]) => `
+          <div class="stat-box"><div class="num">${num ?? 0}</div><div class="label">${label}</div></div>
+        `).join('');
+
+        const recent = jobs.slice(0, 5);
+        if (!recent.length) {
+          listEl.innerHTML = '<div class="empty-state">No jobs posted yet. <a href="/company/create-job">Post your first job</a>.</div>';
+        } else {
+          listEl.innerHTML = recent.map(job => `
+            <div class="card">
+              <div class="card-row">
+                <div>
+                  <strong>${escapeHtml(job.title)}</strong><br>
+                  <span class="text-muted">${escapeHtml(job.location)} · ${job.applicationCount} application(s)</span>
+                </div>
+                <div>
+                  <span class="${badgeClassForStatus(job.approvalStatus)}">${escapeHtml(job.approvalStatus)}</span>
+                  <span class="${badgeClassForStatus(job.status)}">${escapeHtml(job.status)}</span>
+                </div>
+              </div>
+              <div class="btn-row">
+                <a class="btn btn-small" href="/company/applications/${job.id}">View Applications</a>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        listEl.innerHTML = `<div class="msg error" style="display:block">Failed to load dashboard: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

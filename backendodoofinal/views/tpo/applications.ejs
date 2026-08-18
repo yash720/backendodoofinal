@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'All Applications' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>All Applications</h1>
+    <p class="subtitle" id="appsSubtitle">Loading…</p>
+    <div id="appsList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('tpo');
+      const el = document.getElementById('appsList');
+      try {
+        const data = await apiFetch('/tpo/applications');
+        const apps = data.applications || [];
+        document.getElementById('appsSubtitle').textContent = `${apps.length} application(s) across campus`;
+
+        if (!apps.length) {
+          el.innerHTML = '<div class="empty-state">No applications yet.</div>';
+          return;
+        }
+
+        el.innerHTML = `
+          <table>
+            <tr><th>Student</th><th>Job</th><th>Company</th><th>Status</th><th>Applied</th></tr>
+            ${apps.map(app => `
+              <tr>
+                <td>${escapeHtml(app.student ? app.student.name : 'N/A')}</td>
+                <td>${escapeHtml(app.job ? app.job.title : 'N/A')}</td>
+                <td>${escapeHtml(app.job && app.job.company ? app.job.company.name : 'N/A')}</td>
+                <td><span class="${badgeClassForStatus(app.status)}">${escapeHtml(app.status)}</span></td>
+                <td>${fmtDate(app.appliedAt)}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `;
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load applications: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

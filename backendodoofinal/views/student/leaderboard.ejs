@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Leaderboard' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Campus Leaderboard</h1>
+    <p class="subtitle" id="lbSubtitle">Loading…</p>
+    <div id="myRankBox"></div>
+    <div id="lbTable" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('student');
+      const tableEl = document.getElementById('lbTable');
+      try {
+        const [lbData, myData] = await Promise.all([
+          apiFetch('/ranking/leaderboard'),
+          apiFetch('/ranking/my-ranking').catch(() => null)
+        ]);
+        const d = lbData.data;
+        document.getElementById('lbSubtitle').textContent = `${d.totalStudents} student(s) ranked`;
+
+        if (myData) {
+          const m = myData.data;
+          document.getElementById('myRankBox').innerHTML = `
+            <div class="stat-grid">
+              <div class="stat-box"><div class="num">#${m.student.rank ?? '-'}</div><div class="label">Your Rank</div></div>
+              <div class="stat-box"><div class="num">${m.student.totalScore ?? 0}</div><div class="label">Your Score</div></div>
+              <div class="stat-box"><div class="num">${m.student.totalQuizzesTaken ?? 0}</div><div class="label">Tests Taken</div></div>
+              <div class="stat-box"><div class="num">${m.student.averageScore != null ? Math.round(m.student.averageScore) : 0}</div><div class="label">Avg Score</div></div>
+            </div>`;
+        }
+
+        const rows = d.leaderboard || [];
+        tableEl.innerHTML = `
+          <table>
+            <tr><th>Rank</th><th>Name</th><th>Score</th><th>Tests Taken</th><th>Avg</th><th>Best</th></tr>
+            ${rows.map(r => `
+              <tr style="${r.isCurrentUser ? 'background:#eff6ff' : ''}">
+                <td>#${r.rank}</td>
+                <td>${escapeHtml(r.studentName)} ${r.isCurrentUser ? '<span class="badge badge-primary">You</span>' : ''}</td>
+                <td>${r.score ?? 0}</td>
+                <td>${r.totalQuizzesTaken ?? 0}</td>
+                <td>${r.averageScore != null ? Math.round(r.averageScore) : 0}</td>
+                <td>${r.highestScore ?? 0}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `;
+      } catch (err) {
+        tableEl.innerHTML = `<div class="msg error" style="display:block">Failed to load leaderboard: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

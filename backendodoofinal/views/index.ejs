@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Home' }) %>
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="hero">
+    <h1>Campus Placements, Simplified</h1>
+    <p>One place for students to find jobs, companies to hire, and TPOs to manage the entire placement process.</p>
+    <div class="btn-row" style="justify-content:center">
+      <a class="btn" href="/register">Get Started</a>
+      <a class="btn btn-secondary" href="/login">Login</a>
+    </div>
+
+    <div class="role-cards">
+      <div class="card">
+        <h2 class="mt-0">Students</h2>
+        <p class="text-muted">Browse approved job postings, apply, track your application status, take tests, and check the leaderboard.</p>
+      </div>
+      <div class="card">
+        <h2 class="mt-0">Companies</h2>
+        <p class="text-muted">Post job openings, review applications, and manage offers to students — all in one dashboard.</p>
+      </div>
+      <div class="card">
+        <h2 class="mt-0">TPOs</h2>
+        <p class="text-muted">Approve or reject job postings, monitor applications across the campus, and generate placement reports.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

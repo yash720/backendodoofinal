@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'My Profile' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>My Profile</h1>
+    <p class="subtitle">Update your details and manage your resumes.</p>
+
+    <div class="card">
+      <h2 class="mt-0">Profile Details</h2>
+      <form id="profileForm">
+        <div class="field-row">
+          <div>
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name">
+          </div>
+          <div>
+            <label for="branch">Branch</label>
+            <input type="text" id="branch" name="branch">
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label for="cgpa">CGPA</label>
+            <input type="number" step="0.01" id="cgpa" name="cgpa">
+          </div>
+          <div>
+            <label for="phone">Phone</label>
+            <input type="text" id="phone" name="phone">
+          </div>
+        </div>
+        <div>
+          <label for="address">Address</label>
+          <input type="text" id="address" name="address">
+        </div>
+        <div>
+          <label for="skills">Skills (comma separated)</label>
+          <input type="text" id="skills" name="skills" placeholder="JavaScript, React, Node.js">
+        </div>
+        <button type="submit" id="saveBtn">Save Changes</button>
+        <div id="profileMsg" class="msg"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 class="mt-0">Resumes</h2>
+      <div id="resumeList" class="loading">Loading…</div>
+
+      <h2>Add a Resume</h2>
+      <form id="resumeForm">
+        <div class="field-row">
+          <div>
+            <label for="resTitle">Title</label>
+            <input type="text" id="resTitle" name="title" required placeholder="e.g. Software Engineer Resume">
+          </div>
+          <div>
+            <label for="resUrl">URL</label>
+            <input type="url" id="resUrl" name="url" required placeholder="https://…">
+          </div>
+        </div>
+        <div>
+          <label for="resDesc">Description</label>
+          <input type="text" id="resDesc" name="description" placeholder="Optional notes">
+        </div>
+        <button type="submit" id="resumeBtn">Add Resume</button>
+        <div id="resumeMsg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentUser;
+
+    async function loadResumes() {
+      const el = document.getElementById('resumeList');
+      try {
+        const data = await apiFetch('/student/view-resumes');
+        const resumes = data.resumes || [];
+        el.innerHTML = resumes.length
+          ? resumes.map(r => `
+              <div class="card" style="margin-bottom:8px">
+                <strong>${escapeHtml(r.title)}</strong>
+                <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" class="text-muted" style="margin-left:8px;font-size:0.85rem">Open ↗</a>
+                <p class="text-muted" style="margin:6px 0 0;font-size:0.85rem">${escapeHtml(r.description || '')}</p>
+              </div>
+            `).join('')
+          : '<div class="empty-state">No resumes uploaded yet.</div>';
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load resumes: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    (async function () {
+      currentUser = requireAuth('student');
+      try {
+        const data = await apiFetch('/student/dashboard');
+        const s = data.student || {};
+        document.getElementById('name').value = s.name || '';
+        document.getElementById('branch').value = s.branch || '';
+        document.getElementById('cgpa').value = s.cgpa || '';
+        document.getElementById('phone').value = s.phone || '';
+        document.getElementById('address').value = s.address || '';
+        document.getElementById('skills').value = (s.skills || []).join(', ');
+      } catch (err) {
+        showMsg(document.getElementById('profileMsg'), 'Could not load current profile: ' + err.message, true);
+      }
+      loadResumes();
+    })();
+
+    document.getElementById('profileForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('saveBtn');
+      const msgEl = document.getElementById('profileMsg');
+      btn.disabled = true;
+      try {
+        const skills = document.getElementById('skills').value.split(',').map(s => s.trim()).filter(Boolean);
+        const payload = {
+          name: document.getElementById('name').value.trim(),
+          branch: document.getElementById('branch').value.trim(),
+          cgpa: document.getElementById('cgpa').value || undefined,
+          phone: document.getElementById('phone').value.trim(),
+          address: document.getElementById('address').value.trim(),
+          skills
+        };
+        await apiFetch('/student/update-profile', { method: 'POST', body: JSON.stringify(payload) });
+        showMsg(msgEl, 'Profile updated!', false);
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('resumeForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('resumeBtn');
+      const msgEl = document.getElementById('resumeMsg');
+      btn.disabled = true;
+      try {
+        const payload = {
+          title: document.getElementById('resTitle').value.trim(),
+          url: document.getElementById('resUrl').value.trim(),
+          description: document.getElementById('resDesc').value.trim()
+        };
+        await apiFetch('/student/upload-resume', { method: 'POST', body: JSON.stringify(payload) });
+        showMsg(msgEl, 'Resume added!', false);
+        this.reset();
+        loadResumes();
+      } catch (err) {
+        showMsg(msgEl, (err.data && (err.data.message || err.data.error)) || err.message, true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

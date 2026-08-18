@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('../partials/head', { title: 'Placement History' }) %>
+</head>
+<body>
+  <%- include('../partials/nav') %>
+
+  <div class="container">
+    <h1>Placement History</h1>
+    <p class="subtitle">Your finalized placements.</p>
+    <div id="historyList" class="loading">Loading…</div>
+  </div>
+
+  <script>
+    (async function () {
+      requireAuth('student');
+      const el = document.getElementById('historyList');
+      try {
+        const data = await apiFetch('/student/placement-history');
+        const history = data.placementHistory || [];
+        if (!history.length) {
+          el.innerHTML = '<div class="empty-state">No placement history yet.</div>';
+          return;
+        }
+        el.innerHTML = history.map(p => `
+          <div class="card">
+            <div class="card-row">
+              <div>
+                <strong>${escapeHtml(p.job ? p.job.title : (p.jobTitle || 'N/A'))}</strong><br>
+                <span class="text-muted">${escapeHtml(p.company ? p.company.name : (p.companyName || 'N/A'))}</span>
+              </div>
+              <span class="${badgeClassForStatus(p.status)}">${escapeHtml(p.status || 'Placed')}</span>
+            </div>
+            <div class="text-muted" style="margin-top:8px;font-size:0.85rem">
+              Placed ${fmtDate(p.placementDate)} · Package ${fmtMoney(p.package)}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        el.innerHTML = `<div class="msg error" style="display:block">Failed to load placement history: ${escapeHtml(err.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>
